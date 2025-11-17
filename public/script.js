@@ -1,28 +1,87 @@
-const grid = document.querySelector('#grid-videojuegos');
-const spinner = document.querySelector('#spinner');
-const estadoError = document.querySelector('#estado-error');
+const grid = document.querySelector("#grid-videojuegos");
+const spinner = document.querySelector("#spinner");
+const estadoError = document.querySelector("#estado-error");
+const inputBusqueda = document.querySelector("#input-busqueda");
+const btnBuscar = document.querySelector("#btn-buscar");
+const selectTienda = document.querySelector("#select-tienda");
+const selectOrden = document.querySelector("#select-orden");
+const btnVerMas = document.querySelector("#btn-ver-mas");
+
+// Modal
+const modal = document.querySelector("#modal");
+const modalImg = document.querySelector("#modal-img");
+const modalTitulo = document.querySelector("#modal-titulo");
+const modalPrecioNormal = document.querySelector("#modal-precio-normal");
+const modalPrecioOferta = document.querySelector("#modal-precio-oferta");
+const modalLink = document.querySelector("#modal-link");
+const modalCerrar = document.querySelector("#modal-cerrar");
+
+
+let pagina = 0; // Para el botón "VER MÁS"
+let juegosActuales = []; // Para filtros y ordenamientos
 
 // Render de tarjetas
 function renderVideojuegos(lista) {
   grid.innerHTML = "";
 
   lista.forEach(juego => {
-    const card = document.createElement("article");
     const titulo = juego.title || juego.external || "Juego";
     const imagen = juego.thumb || juego.thumbnail || "";
+    const normal = juego.normalPrice ?? "_";
+    const oferta = juego.salePrice ?? juego.cheapest ?? "_";
+    const ahorro = juego.savings ? Math.round(juego.savings) : null;
 
-    card.className = "bg-white shadow rounded-lg overflow-hidden";
+    const card = document.createElement('article');
+    card.className =
+            "bg-white rounded-xl shadow-md overflow-hidden border border-slate-100 flex flex-col";
 
     card.innerHTML = `
-      <img src="${imagen}" class="h-40 w-full object-cover" />
-      <div class="p-4">
-        <h3 class="font-semibold">${titulo}</h3>
-      </div>
-    `;
+    <img src="${thumb}" class="h-40 w-full object-cover" />
+    <div class="p-4 flex flex-col gap-2 flex-1">
+    <h3 class="text-md font-semibold text-slate-900">${titulo}</h3>
 
-    grid.appendChild(card);
-  });
+            <p class="text-sm text-slate-500">
+                ${
+                    normal !== "_" ? `<s>$${normal}</s>` : "-"
+                }
+                ${
+                    oferta !== "_" 
+                        ? ` <strong class="font-semibold text-slate-900">$${oferta}</strong>`
+                        : ""
+                }
+                ${ahorro ? ` Ahorro ${ahorro}%` : ""}
+            </p>
+
+            <button class="btn-detalle mt-2 w-full bg-slate-900 text-white py-2 rounded-lg text-sm hover:bg-slate-700 transition">
+                Ver detalle
+            </button>
+        </div>
+        `;
+
+
+  // Modal
+
+function abrirModal(juego) {
+    modalImg.src = juego.thumb || juego.thumbnail || "";
+    modalTitulo.textContent = juego.title || juego.external || "Juego";
+
+    modalPrecioNormal.textContent = `Precio normal: $${juego.normalPrice ?? "-"}`;
+    modalPrecioOferta.textContent = `Oferta: $${juego.salePrice ?? juego.cheapest ?? "-"}`;
+
+    modalLink.href = juego.dealID
+        ? `https://www.cheapshark.com/redirect?dealID=${juego.dealID}`
+        : "#";
+
+    modal.classList.remove('hidden');
 }
+
+modalCerrar.addEventListener('click', () => {
+    modal.classList.add('hidden');
+});
+
+modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.classList.add('hidden');
+});
 
 // Carga inicial
 async function cargarVideojuegosInicial() {
@@ -30,13 +89,21 @@ async function cargarVideojuegosInicial() {
   estadoError.classList.add("hidden");
 
   try {
-    const resp = await fetch("https://www.cheapshark.com/api/1.0/deals?storeID=1&pageSize=12");
-    if (!resp.ok) throw new Error("Error API");
+    const url =
+            `https://www.cheapshark.com/api/1.0/deals?storeID=1&pageSize=12&pageNumber=${pagina}`;
+
+        const resp = await fetch(url);
+         if (!resp.ok) throw new Error("Error en API");
 
     const data = await resp.json();
-    renderVideojuegos(data);
+    juegosActuales = [...juegosActuales, ...data];
 
-  } catch {
+    renderVideojuegos(juegosActuales);
+
+    btnVerMas.classList.remove("hidden");
+
+  } catch (e){
+    console.error(e);
     estadoError.classList.remove("hidden");
   } finally {
     spinner.classList.add("hidden");
@@ -44,3 +111,66 @@ async function cargarVideojuegosInicial() {
 }
 
 cargarVideojuegosInicial();
+
+// Busqueda
+
+async function buscarVideojuegos() {
+    const texto = inputBusqueda.value.trim();
+    if (texto === "") return;
+
+    spinner.classList.remove('hidden');
+    estadoError.classList.add('hidden');
+
+    try {
+        const url = `https://www.cheapshark.com/api/1.0/games?title=${texto}&limit=20`;
+
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error("Error en API");
+
+        const data = await resp.json();
+
+        renderVideojuegos(data);
+        btnVerMas.classList.add('hidden');
+    } 
+    catch (e) {
+        estadoError.classList.remove('hidden');
+    } 
+    finally {
+        spinner.classList.add('hidden');
+    }
+}
+
+btnBuscar.addEventListener('click', buscarVideojuegos);
+
+
+// Filtrado por tienda
+
+selectTienda.addEventListener('change', () => {
+    const tienda = selectTienda.value;
+
+    if (tienda === "") {
+        renderVideojuegos(juegosActuales);
+        return;
+    }
+
+    const filtrados = juegosActuales.filter(j => j.storeID == tienda);
+    renderVideojuegos(filtrados);
+});
+
+
+// Ordenamiento
+
+selectOrden.addEventListener('change', () => {
+    let lista = [...juegosActuales];
+
+    if (selectOrden.value === "precio-asc") {
+        lista.sort((a, b) => a.salePrice - b.salePrice);
+    }
+
+    if (selectOrden.value === "precio-desc") {
+        lista.sort((a, b) => b.salePrice - a.salePrice);
+    }
+
+    renderVideojuegos(lista);
+});
+
