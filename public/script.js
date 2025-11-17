@@ -1,3 +1,4 @@
+//  Seleccion del Dom
 const grid = document.querySelector("#grid-videojuegos");
 const spinner = document.querySelector("#spinner");
 const estadoError = document.querySelector("#estado-error");
@@ -17,8 +18,8 @@ const modalLink = document.querySelector("#modal-link");
 const modalCerrar = document.querySelector("#modal-cerrar");
 
 
-let pagina = 0; // Para el botón "VER MÁS"
-let juegosActuales = []; // Para filtros y ordenamientos
+let pagina = 0; // es para el boton ver mas
+let juegosActuales = []; // Para ordenar y filtrar
 
 // Render de tarjetas
 function renderVideojuegos(lista) {
@@ -26,7 +27,7 @@ function renderVideojuegos(lista) {
 
   lista.forEach(juego => {
     const titulo = juego.title || juego.external || "Juego";
-    const imagen = juego.thumb || juego.thumbnail || "";
+    const thumb = juego.thumb || juego.thumbnail || "";
     const normal = juego.normalPrice ?? "_";
     const oferta = juego.salePrice ?? juego.cheapest ?? "_";
     const ahorro = juego.savings ? Math.round(juego.savings) : null;
@@ -58,6 +59,14 @@ function renderVideojuegos(lista) {
         </div>
         `;
 
+        // Abrir modal
+        card.querySelector('.btn-detalle').addEventListener('click', () => {
+            abrirModal(juego);
+        });
+
+        grid.appendChild(card);
+    });
+}
 
   // Modal
 
@@ -111,6 +120,13 @@ async function cargarVideojuegosInicial() {
 }
 
 cargarVideojuegosInicial();
+
+//  VER MÁS 
+
+btnVerMas.addEventListener('click', () => {
+    pagina++;
+    cargarVideojuegosInicial();
+});
 
 // Busqueda
 
